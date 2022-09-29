@@ -47,25 +47,31 @@ which would generate this after optimization
   mov f32 &b0, f32 98726.5
   
   add i32 %i0, i32 &x0, i32 &y0
-  sub f32 %i0, i32 &i0, f32 &b0
+  sub i32 %i0, i32 &i0, f32 &b0 (implicit conversion can be done here of float to int)
   
-  ret %i0
-
-
-which would generate this sudoassembly
-
-(No memory is needed because there are enough registers to compensate) 
-
-  movl %eax, $3
-  movl %ebx, $5
-  mull %ebx, %eax
-  divl %ebx, %2
-  
-  movss %xmm0, .LD0(%rip)
-  
-  
+  ret i32 %i0
   
 
-which would then be optimized / checked again before outputting
+which would then be optimized / checked for proper registers before outputting
+(in at&t syntax for now) 
+test:
+  movl $3, %eax
+  movl %5, %ebx 
+  imull %eax, %ebx
+  movl %eax, %ecx // save x
+  // edx isn't allocated so it doesn't need to be saved
+  cdq 
 
+  idivl .LD0(%rip)
+  // Now %ecx holds x and 
+  
+  movss %xmm0, .LD1(%rip)
+  
+  movl %ecx, %eax
+  addl %ecx, %ebx
+  cvtss2si %edx, %xmm0
+  subl %ecx, %edx
+  
+  movl %eax, %ecx
+  ret
 
