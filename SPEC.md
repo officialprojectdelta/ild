@@ -24,18 +24,19 @@ xmm14 - xmm15 are never used, except for intermediate values (rvalues)
 all registers can be used besides these for local variables 
 
 some examples 
-
+```
 int test(void)
 {
     int x = 3;
     int y = x * 5 / 2
     float b = 98723 + 3.5;
-    
     return x + y - b;
 }
+```
 
 would generate 
 
+```
 i32 test():
   mov i32 &x0, ui8 3 // int x = 3; x0 is because of adding the scope it is in in the symtable generator, its a compiler thing
  
@@ -48,9 +49,11 @@ i32 test():
   sub f32 %i0, i32 &i0, f32 &b0
   
   ret %i0
-
+```
 
 which would generate this after il optimization
+
+```
   mov i32 &x0, ui8 3 // int x = 3; x0 is because of adding the scope it is in in the symtable generator, its a compiler thing
  
   mul i32 %i0, i32 &x0, ui8 5
@@ -93,6 +96,6 @@ test:
   // Definatly once it is more advanced clear unallocated registers, but not unallocated stack space (cause the stack is organized) 
   movl %eax, %ecx
   ret
-  
+```
   
 
