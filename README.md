@@ -1,4 +1,4 @@
-# iil
+# Intermediate Language Delta
 An intermediate language, created for the delta project
 
 Spec 
