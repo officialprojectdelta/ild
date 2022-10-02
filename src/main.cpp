@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "lexer.hpp"
+#include "lexer.h"
 
 int main() {
     std::cout << "Hello, World!" << std::endl;

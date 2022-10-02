@@ -1,6 +1,6 @@
 TARGET_EXEC = ILD
 CC = clang++
-LINK = mold
+LINK = clang++ 
 UNAME_S = $(shell uname -s)
 HOME_DIR = ~/dev/ILD
 
@@ -21,6 +21,10 @@ LDFLAGS = $(LIBS) #-lm
 
 all: clean dirs libs link
 
+all: 
+	$(MAKE) -j8 bld
+	$(MAKE) link
+
 dirs:
 	mkdir -p ./$(BIN)
 
@@ -30,6 +34,13 @@ link: $(OBJ)
 	$(LINK) -o $(BIN)/$(TARGET_EXEC) $^ $(LDFLAGS)
 	@echo 'Finished building target executable:' $(TARGET_EXEC)
 	@echo ' '
+
+bld: 
+	$(MAKE) clean
+	$(MAKE) dirs
+	$(MAKE) obj
+
+obj: $(OBJ)
 
 asm: cleanassembly $(ASM)
 
