@@ -4,6 +4,10 @@
 #include "lexer.h"
 #include "error.h" // A nice exception class with printf formatting
 
+// Go through string that could start with whitespace and make sure it doesn't
+// Pos is now pointing to next non whitespace character after pos
+void clear_whitespace(
+
 // Generates a string, returns if whitespace (' ', newline, or '\r') is found
 std::string gen_str(const std::string& src, size_t& pos)
 {
@@ -18,7 +22,14 @@ Type gen_type(const std::string& src, size_t& pos)
 {
     switch (gen_str) 
     {
-            
+        case "i32":
+        {
+            return {TokenType::INT, 4};
+        }
+        case "f32":
+        {
+            return {TokenType::FLOAT, 4};
+        }
     }
 }
 
@@ -40,7 +51,18 @@ std::vector<FunList> gen_funs(Globals* current, const std::string& src, size_t& 
             {
                if (gen_str(src, pos) != "def") throw compiler_error("Invalid function decl);
                
-                                                                
+               current->fun_list.push_back();
+               current->fun_list.back().type = gen_type(src, pos);
+               current->fun_list.back().name = gen_str(src, pos);
+               if (src[pos] != '(') throw compiler_error("Invalid function decl, missing '('");
+               pos++;                                                     
+               if (src[pos] == ')') pos++;
+               else 
+               {
+                   // Get args of function
+               }  
+               
+               if (src[pos] != ":") throw compiler_error                                                     
             }
             default throw compiler_error("Invalid function decl");
         }
