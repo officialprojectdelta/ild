@@ -11,6 +11,7 @@ enum class Operator
     SUB,
     MUL,
     DIV,
+    DEF,
     RET
 };
 
@@ -56,6 +57,8 @@ struct FunList
     Type ret; // Return type
     std::vector<Oprand> args; // Args list
     std::string name; // Name of function
+    
+    std::vector<Instruction> instruct_list; // List of instructions
 };
 
 // Every function and defined globals (added later)
@@ -64,4 +67,4 @@ struct Globals
     std::vector<FunList> fun_list;
 };
 
-Globals lex(const std::string& src);
+Globals* lex(const std::string& src);
