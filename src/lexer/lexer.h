@@ -46,9 +46,7 @@ struct Oprand
 struct Instruction
 {
     Operator op; // The operator, such as mov, add, cmp, or jmp
-    Oprand dst; // The first oprand (the destination)
-    Oprand src1; // The second oprand
-    Oprand src2; // The third oprand
+    std::array<Operand, 3> operands; // So it can be indexed, holds 3 operands
 };
 
 // Every function, and it's corresponding instruction list
