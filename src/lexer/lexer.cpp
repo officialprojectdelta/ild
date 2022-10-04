@@ -60,14 +60,21 @@ void gen_instruct(FunList* current, const std::string& src, size_t& pos)
         instr.operator = operator_map[check].second;
         for (size_t i = 0; i < operator_map[check].first; i++)
         {
+            size_t pos1 = pos;
+            Type type = gen_type(src, pos); 
             // Gen all subnodes
-            if (gen_type(src, pos).type == TokenType::NULLTP)
+            if (type.type == TokenType::NULLTP)
             {
                 // Must be lable
+                pos = pos1;
+                instr.operands[i].kind == OKind::LABLE;
+                instr.operands[i].value = gen_str(src, pos);
             }
             else
             {
-                // Add type and check next 
+                // Add type and check next for the value
+                instr.operands[i].type = type;
+                switch
             }
         }
     }
