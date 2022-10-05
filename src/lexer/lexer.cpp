@@ -47,7 +47,7 @@ Type gen_type(const std::string& src, size_t& pos)
 }
 
 // Generates 1 instruction
-void gen_instruct(FunList* current, const std::string& src, size_t& pos)
+void gen_instruct(Func* current, const std::string& src, size_t& pos)
 {
     Instruction instr;
     std::string check = gen_str(src, pos);
@@ -91,7 +91,7 @@ void gen_funs(Globals* current, const std::string& src, size_t& pos)
     // If a new function is defined, push it back and continue
     // If a new variable is defined, do nothing 
     // For other instructions, add them as normal 
-    // If a dot is reached, return the funlist
+    // If a dot is reached, return the Func
     
     // No guarantee of compiliation, because this was written without testing
     while (true)

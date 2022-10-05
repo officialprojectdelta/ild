@@ -36,11 +36,11 @@ enum class OKind
     CONST,
 };
 
-struct Oprand
+struct Operand
 {
     OKind kind; // If it is memory, temporary, lable, constant
     Type type; // The type (i32, f32, etc., or none for lables)
-    std::string value; // The actual oprand, such as 3 or &x0
+    std::string value; // The actual Operand, such as 3 or &x0
 };      
 
 struct Instruction
@@ -50,10 +50,10 @@ struct Instruction
 };
 
 // Every function, and it's corresponding instruction list
-struct FunList
+struct Func
 {
     Type ret; // Return type
-    std::vector<Oprand> args; // Args list
+    std::vector<Operand> args; // Args list
     std::string name; // Name of function
     
     std::vector<Instruction> instruct_list; // List of instructions
@@ -62,7 +62,7 @@ struct FunList
 // Every function and defined globals (added later)
 struct Globals 
 {   
-    std::vector<FunList> fun_list;
+    std::vector<Func> fun_list;
 };
 
 Globals* lex(const std::string& src);
