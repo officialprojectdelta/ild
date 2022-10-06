@@ -53,7 +53,44 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
     std::string check = gen_str(src, pos);
     if (check == "def") 
     {
-        // Gen def 
+        Type type = gen_type(src, pos);
+        if (type.type == TypeKind::NULLTP) throw compiler_error("Expected type of declaration");
+        
+        instr.op = Operator::DEF;
+        operands[0].type = type;
+        operands[0].kind = OKind::MEMORY;
+        operands[0].value = gen_str(src, pos).erase(0, 1);
+
+        size_t pos1 = pos;
+        type = gen_str(src, pos);
+        if (type.type == TokenType::NULLTP) 
+        {
+            pos = pos1;
+        }
+        else
+        {
+            // Add type and check next for the value
+            instr.operands[1].type = type;
+            std::string check = gen_str(src, pos);
+
+            std::unordered_map<char, OKind> okind_map({
+                {'&', OKind::MEMORY},
+                {'%', OKind::TEMP}
+            });
+
+            // Temporary or memory
+            if (okind_map.contains[check[0]])
+            {
+                instr.operands[1].kind = okind_map[check[0]];
+                check.erase(0, 1);
+                instr.oprands[1].value = check;
+            }
+            else // Must be numner
+            {
+                instr.operands[1].kind = OKind::NUMBER;
+                instr.operand[1].value = check;
+            }
+        }
     }
     else if (operator_map.contains(check))
     {
@@ -63,7 +100,7 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
             size_t pos1 = pos;
             Type type = gen_type(src, pos); 
             // Gen all subnodes
-            if (type.type == TokenType::NULLTP)
+            if (type.type == TypeKind::NULLTP)
             {
                 // Must be lable
                 pos = pos1;
@@ -74,7 +111,25 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
             {
                 // Add type and check next for the value
                 instr.operands[i].type = type;
-                switch
+                std::string check = gen_str(src, pos);
+
+                std::unordered_map<char, OKind> okind_map({
+                    {'&', OKind::MEMORY},
+                    {'%', OKind::TEMP}
+                });
+
+                // Temporary or memory
+                if (okind_map.contains[check[0]])
+                {
+                    instr.operands[i].kind = okind_map[check[0]];
+                    check.erase(0, 1);
+                    instr.oprands[i].value = check;
+                }
+                else // Must be numner
+                {
+                    instr.operands[i].kind = OKind::NUMBER;
+                    instr.operand[i].value = check;
+                }
             }
         }
     }
@@ -82,6 +137,10 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
     {
         throw compiler_error("Invalid operator", check.c_str());
     }   
+
+    current->fun_list.back().instruct_list.emplace_back(instr);
+
+    return;
 }
 
 // Generate all tokens in a text subsection (generates the function headers)
@@ -109,6 +168,7 @@ void gen_funs(Globals* current, const std::string& src, size_t& pos)
             else 
             {
                // Get args of function
+               throw compiler_error("didnt expect args");
             }  
                
             if (src[pos] != ':') throw compiler_error("Expected proper end of function, missing ':'");   
@@ -117,7 +177,7 @@ void gen_funs(Globals* current, const std::string& src, size_t& pos)
             while (true)
             {
                 clear_whitespace(src, pos);
-                pos1 = pos;
+                size_t pos1 = pos;
                 if (gen_str(src, pos) == "global")
                 {
                     pos = pos1;
@@ -129,6 +189,8 @@ void gen_funs(Globals* current, const std::string& src, size_t& pos)
         }
         else throw compiler_error("Invalid function decl"); 
     }
+
+    return;
 }
 
 Globals* lex(const std::string& src)
