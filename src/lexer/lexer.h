@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <array>
 
 enum class Operator 
 {
@@ -26,6 +27,34 @@ struct Type
 {
     TypeKind t_kind;
     size_t size_of;
+
+    Type() 
+        : t_kind(TypeKind::NULLTP), size_of(0)
+    {
+
+    }
+
+    Type(TypeKind t_kind, size_t size_of) 
+        : t_kind(t_kind), size_of(size_of)
+    {
+
+    }
+
+    bool operator==(const Type& type) const 
+    {
+        return this->t_kind == type.t_kind && this->size_of == type.size_of;
+    }
+};
+
+template<>
+struct std::hash<Type>
+{
+    std::size_t operator()(const Type& t) const noexcept
+    {
+        std::size_t h1 = std::hash<TypeKind>{}(t.t_kind);
+        std::size_t h2 = std::hash<size_t>{}(t.size_of);
+        return h1 ^ (h2 << 1);
+    }
 };
 
 enum class OKind

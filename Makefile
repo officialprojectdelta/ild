@@ -15,11 +15,9 @@ INC_DIR_LIB =
 DEBUGFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIB) -Wall -g
 RELEASEFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIB) -O3
 ASMFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIBS) -Wall
-LDFLAGS = $(LIBS) -lm -fuse-ld=mold
+LDFLAGS = $(LIBS) -lm
 
 .PHONY: all libs clean
-
-all: clean dirs libs link
 
 all: 
 	$(MAKE) -j8 bld
@@ -63,7 +61,7 @@ build: dirs link
 
 run:
 	@echo 'Running executable: '$(TARGET_EXEC)
-	./$(BIN)/$(TARGET_EXEC);
+	./$(BIN)/$(TARGET_EXEC) Test.il;
 	@echo 'Finished running executable: '$(TARGET_EXEC)
 	@echo ' '
 

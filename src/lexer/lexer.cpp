@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <array>
 #include <unordered_map>
 
 #include "lexer.h"
@@ -24,9 +25,9 @@ std::unordered_map<std::string, std::pair<size_t /* Oprand count, so the generat
 // Pos is now pointing to next non whitespace character after pos
 void clear_whitespace(const std::string& src, size_t& pos)
 {
-    if (src[pos] != ' ' && src[pos] != '\n' && src[pos] != '\r') return;
-    pos = src.find_first_of(" \n\r", pos);
-    pos++;
+    if (src[pos] != ' ' && src[pos] != '\n' && src[pos] != '\r' && src[pos] != ',') return;
+    pos = src.find_first_not_of(" \n\r,", pos);
+    if (pos == std::string::npos) pos = src.size();
     return;
 }
 
@@ -35,15 +36,16 @@ std::string gen_str(const std::string& src, size_t& pos)
 {
     clear_whitespace(src, pos);
     size_t pos1 = pos;
-    pos = src.find_first_of(" \n\r", pos);
-    return src.substr(pos1, pos++ - pos1 - 1);
+    pos = src.find_first_of(" \n\r,", pos);
+    return src.substr(pos1, pos++ - pos1);
 }
 
 // MOVE THIS TO TYPE.CPP
 // Generates a type from a string
 Type gen_type(const std::string& src, size_t& pos)
 {
-    return str_type.contains(gen_str(src, pos)) ? str_type[gen_str(src, pos)] : {TokenType::NULLTP};
+    std::string check = gen_str(src, pos);
+    return str_type.contains(check) ? str_type[check] : Type{TypeKind::NULLTP, 0};
 }
 
 // Generates 1 instruction
@@ -54,16 +56,16 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
     if (check == "def") 
     {
         Type type = gen_type(src, pos);
-        if (type.type == TypeKind::NULLTP) throw compiler_error("Expected type of declaration");
+        if (type.t_kind == TypeKind::NULLTP) throw compiler_error("Expected type of declaration");
         
         instr.op = Operator::DEF;
-        operands[0].type = type;
-        operands[0].kind = OKind::MEMORY;
-        operands[0].value = gen_str(src, pos).erase(0, 1);
+        instr.operands[0].type = type;
+        instr.operands[0].kind = OKind::MEMORY;
+        instr.operands[0].value = gen_str(src, pos).erase(0, 1);
 
         size_t pos1 = pos;
-        type = gen_str(src, pos);
-        if (type.type == TokenType::NULLTP) 
+        type = gen_type(src, pos);
+        if (type.t_kind == TypeKind::NULLTP) 
         {
             pos = pos1;
         }
@@ -79,32 +81,32 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
             });
 
             // Temporary or memory
-            if (okind_map.contains[check[0]])
+            if (okind_map.contains(check[0]))
             {
                 instr.operands[1].kind = okind_map[check[0]];
-                check.erase(0, 1);
-                instr.oprands[1].value = check;
+                check.erase(0, 2);
+                instr.operands[1].value = check;
             }
-            else // Must be numner
+            else // Must be number
             {
-                instr.operands[1].kind = OKind::NUMBER;
-                instr.operand[1].value = check;
+                instr.operands[1].kind = OKind::CONST;
+                instr.operands[1].value = check;
             }
         }
     }
     else if (operator_map.contains(check))
     {
-        instr.operator = operator_map[check].second;
+        instr.op = operator_map[check].second;
         for (size_t i = 0; i < operator_map[check].first; i++)
         {
             size_t pos1 = pos;
             Type type = gen_type(src, pos); 
             // Gen all subnodes
-            if (type.type == TypeKind::NULLTP)
+            if (type.t_kind == TypeKind::NULLTP)
             {
                 // Must be lable
                 pos = pos1;
-                instr.operands[i].kind == OKind::LABLE;
+                instr.operands[i].kind = OKind::LABLE;
                 instr.operands[i].value = gen_str(src, pos);
             }
             else
@@ -113,22 +115,23 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
                 instr.operands[i].type = type;
                 std::string check = gen_str(src, pos);
 
-                std::unordered_map<char, OKind> okind_map({
-                    {'&', OKind::MEMORY},
-                    {'%', OKind::TEMP}
-                });
-
-                // Temporary or memory
-                if (okind_map.contains[check[0]])
+                // Temporary 
+                if (check[0] == '%')
                 {
-                    instr.operands[i].kind = okind_map[check[0]];
-                    check.erase(0, 1);
-                    instr.oprands[i].value = check;
+                    instr.operands[i].kind = OKind::TEMP;
+                    check.erase(0, 2);
+                    instr.operands[i].value = check;
                 }
-                else // Must be numner
+                else if (check[0] == '&')
                 {
-                    instr.operands[i].kind = OKind::NUMBER;
-                    instr.operand[i].value = check;
+                    instr.operands[i].kind = OKind::MEMORY;
+                    check.erase(0, 1);
+                    instr.operands[i].value = check;
+                }
+                else // Must be number
+                {
+                    instr.operands[i].kind = OKind::CONST;
+                    instr.operands[i].value = check;
                 }
             }
         }
@@ -138,7 +141,7 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
         throw compiler_error("Invalid operator", check.c_str());
     }   
 
-    current->fun_list.back().instruct_list.emplace_back(instr);
+    current->instruct_list.emplace_back(instr);
 
     return;
 }
@@ -153,7 +156,7 @@ void gen_funs(Globals* current, const std::string& src, size_t& pos)
     // If a dot is reached, return the Func
     
     // No guarantee of compiliation, because this was written without testing
-    while (true)
+    while (pos < src.size())
     {
         if (gen_str(src, pos) == "global")
         {
@@ -174,17 +177,18 @@ void gen_funs(Globals* current, const std::string& src, size_t& pos)
             if (src[pos] != ':') throw compiler_error("Expected proper end of function, missing ':'");   
             pos++;
 
-            while (true)
+            while (pos < src.size())
             {
-                clear_whitespace(src, pos);
                 size_t pos1 = pos;
                 if (gen_str(src, pos) == "global")
                 {
                     pos = pos1;
                     break;
                 }
+                pos = pos1;
 
                 gen_instruct(&current->fun_list.back(), src, pos);
+                clear_whitespace(src, pos);
             }
         }
         else throw compiler_error("Invalid function decl"); 
@@ -197,14 +201,18 @@ Globals* lex(const std::string& src)
 {
     Globals* current = new Globals;
     size_t pos = 0;
+
     while (pos < src.size())
     {
         if (src[pos] != '.') throw compiler_error("Unexpected character %c", src[pos]);
         pos++;
-        if (gen_str(src, pos) == "text")
+        std::string check = gen_str(src, pos);
+        if (check == "text")
         {
             gen_funs(current, src, pos);
         }
-        else throw compiler_error("Invalid segment %s", gen_str(src, pos).c_str());
+        else throw compiler_error("Invalid segment %s", check.c_str());
     }
+
+    return current;
 }
