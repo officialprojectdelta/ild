@@ -223,48 +223,113 @@ std::string codegen(Globals* src)
 
         for (size_t j = 0; j < src->fun_list[i].instruct_list.size(); j++)
         {
+            auto operands = src->fun_list[i].instruct_list[j].operands;
             switch (src->fun_list[i].instruct_list[j].op)
             {
                 case Operator::DEF:
                 {
-                    var_map.insert({src->fun_list[i].instruct_list[j].operands[0].value, stackLoc});
-                    stackLoc+=src->fun_list[i].instruct_list[j].operands[0].type.size_of;
+                    var_map.insert({operands[0].value, stackLoc});
+                    stackLoc+=operands[0].type.size_of;
                     break;
                 }
                 case Operator::MOV:
                 {
-                    oprintf(&output, "    ", mov_table[src->fun_list[i].instruct_list[j].operands[0].type][src->fun_list[i].instruct_list[j].operands[1].type]);
+                    oprintf(&output, "    ", mov_table[operands[0].type][operands[1].type]);
                     
                     std::array<std::string, 2> strs;
                     for (long long k = 1; k >= 0; k--) 
                     {
-                        switch (src->fun_list[i].instruct_list[j].operands[k].kind)
+                        switch (operands[k].kind)
                         {
                             case OKind::TEMP:
                             {
-                                printRegister(&strs[k], std::stoull(src->fun_list[i].instruct_list[j].operands[k].value), 
-                                src->fun_list[i].instruct_list[j].operands[k].type.size_of, 
-                                bfromTypeKind(src->fun_list[i].instruct_list[j].operands[k].type.t_kind), 
+                                printRegister(&strs[k], std::stoull(operands[k].value), 
+                                operands[k].type.size_of, 
+                                bfromTypeKind(operands[k].type.t_kind), 
                                 !k);
                                 break;
                             }
                             case OKind::CONST:
                             {
-                                oprintf(&strs[k], "$", src->fun_list[i].instruct_list[j].operands[k].value);
+                                oprintf(&strs[k], "$", operands[k].value);
                                 break;
                             }
                             case OKind::MEMORY:
                             {
-                                fetchMemory(&strs[k], src->fun_list[i].instruct_list[j].operands[k]);
+                                fetchMemory(&strs[k], operands[k]);
                             }
                         }
                     }
                     
-                    oprintf(&output, " ", strs[0], ", ", strs[1], "\n");
+                    oprintf(&output, " ", strs[1], ", ", strs[0], "\n");
                     break;
                 }
                 case Operator::ADD:
                 {
+                    // Check if output register and second register are same
+                    // Make sure that they are
+                    // Do add instruction
+                    if (operands[0].kind == OKind::TEMP && operands[1].kind == OKind::TEMP && operands[0].value == operands[1].value) {}
+                    else
+                    {
+                        oprintf(&output, "    ", mov_table[operands[0].type][operands[1].type]);
+                    
+                        std::array<std::string, 2> strs;
+                        for (long long k = 1; k >= 0; k--) 
+                        {
+                            switch (operands[k].kind)
+                            {
+                                case OKind::TEMP:
+                                {
+                                    printRegister(&strs[k], std::stoull(operands[k].value), 
+                                    operands[k].type.size_of, 
+                                    bfromTypeKind(operands[k].type.t_kind), 
+                                    !k);
+                                    break;
+                                }
+                                case OKind::CONST:
+                                {
+                                    oprintf(&strs[k], "$", operands[k].value);
+                                    break;
+                                }
+                                case OKind::MEMORY:
+                                {
+                                    fetchMemory(&strs[k], operands[k]);
+                                }
+                            }
+                        }
+                        
+                        oprintf(&output, " ", strs[1], ", ", strs[0], "\n");
+                    }
+
+                    oprintf(&output, "    addl");
+
+                    std::array<std::string, 2> strs;
+                    for (long long k = 1; k >= 0; k--) 
+                    {
+                        switch (operands[k * 2].kind)
+                        {
+                            case OKind::TEMP:
+                            {
+                                printRegister(&strs[k], std::stoull(operands[k * 2].value), 
+                                operands[k * 2].type.size_of, 
+                                bfromTypeKind(operands[k].type.t_kind), 
+                                !k);
+                                break;
+                            }
+                            case OKind::CONST:
+                            {
+                                oprintf(&strs[k], "$", operands[k * 2].value);
+                                break;
+                            }
+                            case OKind::MEMORY:
+                            {
+                                fetchMemory(&strs[k], operands[k * 2]);
+                            }
+                        }
+                    }
+                    oprintf(&output, " ", strs[1], ", ", strs[0], "\n");
+
                     break;   
                 }
             }
