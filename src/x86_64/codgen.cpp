@@ -326,7 +326,7 @@ std::string codegen(Globals* src)
                             {
                                 fetchMemory(&strs[k], operands[k * 2]);
                             }
-                        }
+                        } 
                     }
                     oprintf(&output, " ", strs[1], ", ", strs[0], "\n");
 
