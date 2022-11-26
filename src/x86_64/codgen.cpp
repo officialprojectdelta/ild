@@ -79,7 +79,7 @@ bool bfromTypeKind(TypeKind t_kind)
     return false;
 }
 
-std::string allocRegister(size_t intermediate, bool is_float)
+std::string allocRegister(bool is_float)
 {
     if (is_float)
     {
@@ -88,7 +88,6 @@ std::string allocRegister(size_t intermediate, bool is_float)
             if (!reg.second)
             {
                 freg_alloc[reg.first] = true;
-                iv_to_reg.insert({intermediate, reg.first});
                 return reg.first;
             }
         }
@@ -102,7 +101,6 @@ std::string allocRegister(size_t intermediate, bool is_float)
             if (!reg.second)
             {
                 ireg_alloc[reg.first] = true;
-                iv_to_reg.insert({intermediate, reg.first});
                 return reg.first;
             }
         }
@@ -111,17 +109,27 @@ std::string allocRegister(size_t intermediate, bool is_float)
     }
 }
 
-void freeRegister(size_t intermediate, bool is_float)
+void freeRegister(std::string reg, bool is_float)
 {
     if (is_float)
     {
-        freg_alloc[iv_to_reg[intermediate]] = false;
+        freg_alloc[reg] = false;
     }
     else 
     {
-        ireg_alloc[iv_to_reg[intermediate]] = false;
+        ireg_alloc[reg] = false;
     }
-    return;
+}
+
+std::string allocRegister(size_t intermediate, bool is_float)
+{
+    iv_to_reg.insert({intermediate, allocRegister(is_float)});
+    return iv_to_reg[intermediate];
+}
+
+void freeRegister(size_t intermediate, bool is_float)
+{
+    freeRegister(iv_to_reg[intermediate], is_float);
 }
 
 void printRegister(std::string* write, size_t intermediate, size_t size, bool is_float, bool alloc)
@@ -211,6 +219,41 @@ void cgfEpilogue()
     oprintf(&output, "    popq %rbp\n");
 }
 
+// Emits a move instruction moving the second operand to the first operand
+void doMove(Operand dst, Operand src)
+{
+    oprintf(&output, "    ", mov_table[dst.type/* DST */][src.type /* SRC */]);
+                    
+    std::array<std::string, 2> strs;
+    for (char k = 1; k >= 0; k--) 
+    {
+        Operand cur = k ? src : dst;
+        switch (cur.kind)
+        {
+            case OKind::TEMP:
+            {
+                printRegister(&strs[k], std::stoull(cur.value), 
+                cur.type.size_of, 
+                bfromTypeKind(cur.type.t_kind), 
+                !k);
+                break;
+            }
+            case OKind::CONST:
+            {
+                oprintf(&strs[k], "$", cur.value);
+                break;
+            }
+            case OKind::MEMORY:
+            {
+                fetchMemory(&strs[k], cur);
+                break;
+            }
+        }
+    }
+    
+    oprintf(&output, " ", strs[1], ", ", strs[0], "\n");
+}
+
 std::string codegen(Globals* src)
 {
     for (size_t i = 0; i < src->fun_list.size(); i++)
@@ -234,34 +277,7 @@ std::string codegen(Globals* src)
                 }
                 case Operator::MOV:
                 {
-                    oprintf(&output, "    ", mov_table[operands[0].type][operands[1].type]);
-                    
-                    std::array<std::string, 2> strs;
-                    for (long long k = 1; k >= 0; k--) 
-                    {
-                        switch (operands[k].kind)
-                        {
-                            case OKind::TEMP:
-                            {
-                                printRegister(&strs[k], std::stoull(operands[k].value), 
-                                operands[k].type.size_of, 
-                                bfromTypeKind(operands[k].type.t_kind), 
-                                !k);
-                                break;
-                            }
-                            case OKind::CONST:
-                            {
-                                oprintf(&strs[k], "$", operands[k].value);
-                                break;
-                            }
-                            case OKind::MEMORY:
-                            {
-                                fetchMemory(&strs[k], operands[k]);
-                            }
-                        }
-                    }
-                    
-                    oprintf(&output, " ", strs[1], ", ", strs[0], "\n");
+                    doMove(operands[0], operands[1]);
                     break;
                 }
                 case Operator::ADD:
@@ -270,37 +286,7 @@ std::string codegen(Globals* src)
                     // Make sure that they are
                     // Do add instruction
                     if (operands[0].kind == OKind::TEMP && operands[1].kind == OKind::TEMP && operands[0].value == operands[1].value) {}
-                    else
-                    {
-                        oprintf(&output, "    ", mov_table[operands[0].type][operands[1].type]);
-                    
-                        std::array<std::string, 2> strs;
-                        for (long long k = 1; k >= 0; k--) 
-                        {
-                            switch (operands[k].kind)
-                            {
-                                case OKind::TEMP:
-                                {
-                                    printRegister(&strs[k], std::stoull(operands[k].value), 
-                                    operands[k].type.size_of, 
-                                    bfromTypeKind(operands[k].type.t_kind), 
-                                    !k);
-                                    break;
-                                }
-                                case OKind::CONST:
-                                {
-                                    oprintf(&strs[k], "$", operands[k].value);
-                                    break;
-                                }
-                                case OKind::MEMORY:
-                                {
-                                    fetchMemory(&strs[k], operands[k]);
-                                }
-                            }
-                        }
-                        
-                        oprintf(&output, " ", strs[1], ", ", strs[0], "\n");
-                    }
+                    else doMove(operands[0], operands[1]);
 
                     oprintf(&output, "    addl");
 
@@ -332,6 +318,202 @@ std::string codegen(Globals* src)
 
                     break;   
                 }
+                case Operator::SUB:
+                {
+                    if (operands[0].kind == OKind::TEMP && operands[1].kind == OKind::TEMP && operands[0].value == operands[1].value) {}
+                    else doMove(operands[0], operands[1]);
+
+                    oprintf(&output, "    subl");
+
+                    std::array<std::string, 2> strs;
+                    for (long long k = 1; k >= 0; k--) 
+                    {
+                        switch (operands[k * 2].kind)
+                        {
+                            case OKind::TEMP:
+                            {
+                                printRegister(&strs[k], std::stoull(operands[k * 2].value), 
+                                operands[k * 2].type.size_of, 
+                                bfromTypeKind(operands[k].type.t_kind), 
+                                !k);
+                                break;
+                            }
+                            case OKind::CONST:
+                            {
+                                oprintf(&strs[k], "$", operands[k * 2].value);
+                                break;
+                            }
+                            case OKind::MEMORY:
+                            {
+                                fetchMemory(&strs[k], operands[k * 2]);
+                            }
+                        } 
+                    }
+                    oprintf(&output, " ", strs[1], ", ", strs[0], "\n");
+
+                    break; 
+                }
+                case Operator::MUL:
+                {
+                    if (operands[0].kind == OKind::TEMP && operands[1].kind == OKind::TEMP && operands[0].value == operands[1].value) {}
+                    else doMove(operands[0], operands[1]);
+
+                    oprintf(&output, "    imul");
+
+                    bool threeops = false;
+
+                    std::array<std::string, 2> strs;
+                    for (long long k = 1; k >= 0; k--) 
+                    {
+                        switch (operands[k * 2].kind)
+                        {
+                            case OKind::TEMP:
+                            {
+                                printRegister(&strs[k], std::stoull(operands[k * 2].value), 
+                                operands[k * 2].type.size_of, 
+                                bfromTypeKind(operands[k].type.t_kind), 
+                                !k);
+                                break;
+                            }
+                            case OKind::CONST:
+                            {
+                                oprintf(&strs[k], "$", operands[k * 2].value);
+                                threeops = true;
+                                break;
+                            }
+                            case OKind::MEMORY:
+                            {
+                                fetchMemory(&strs[k], operands[k * 2]);
+                                break;
+                            }
+                        } 
+                    }
+
+                    if (threeops)
+                    {
+                        oprintf(&output, " ", strs[1], ", ", strs[0], ", ", strs[0], "\n");
+                    }
+                    else 
+                    {
+                        oprintf(&output, " ", strs[1], ", ", strs[0], "\n");
+                    }
+                    break; 
+                }
+                case Operator::DIV:
+                {
+                    // Check if rax or rdx are used
+                    // Allocate those to registers
+                    // Put values in registers
+                    // Call cdq
+                    // Output div instruction 
+                    // Free used registers
+
+                    std::string freeAx = "";
+                    std::string freeDx = "";
+
+                    if (ireg_alloc["ax"])
+                    {
+                        freeAx = allocRegister(false);
+                        if (freeAx[0] == 'r') oprintf(&output, "    movq %rax, %", freeAx, "\n");
+                        else oprintf(&output, "    movq %rax, %r", freeAx, "\n");
+                    }
+
+                    if (ireg_alloc["dx"])
+                    {
+                        freeDx = allocRegister(false);
+                        if (freeAx[0] == 'r') oprintf(&output, "    movq %rdx, %", freeDx, "\n");
+                        else oprintf(&output, "    movq %rdx, %r", freeDx, "\n");
+                    }
+
+                    // Move operand[1] to %rax 
+                    switch (operands[1].kind)
+                    {
+                        case OKind::TEMP: 
+                        {
+                            oprintf(&output, "    movq ");
+                            printRegister(&output, std::stoull(operands[1].value), 
+                            operands[1].type.size_of,
+                            bfromTypeKind(operands[1].type.t_kind),
+                            false);
+                            oprintf(&output, ", %rax\n");
+                            break;
+                        }
+                        case OKind::CONST:
+                        {
+                            oprintf(&output, "    movq $", operands[1].value, ", %rax\n");
+                            break;
+                        }
+                        case OKind::MEMORY:
+                        {
+                            oprintf(&output, "    movq ");
+                            fetchMemory(&output, operands[1]);
+                            oprintf(&output,", %rax\n");
+                            break;
+                        }                    
+                    }
+
+                    oprintf(&output, "    cqo\n");
+                    
+                    std::string opasm; // Used because a constant has to be moved into a register
+                    std::string freeConst = ""; // Used because the register the constant is moved into has to be freed 
+
+                    switch (operands[2].kind)
+                    {
+                        case OKind::TEMP:
+                        {
+                            printRegister(&opasm, std::stoull(operands[2].value), 
+                            operands[2].type.size_of, 
+                            bfromTypeKind(operands[2].type.t_kind), 
+                            false);
+                            break;
+                        }
+                        case OKind::CONST:
+                        {
+                            freeConst = allocRegister(false);
+                            if (freeConst[0] == 'r') 
+                            {
+                                oprintf(&output, "    movq $", operands[2].value, ", %", freeConst, "\n");
+                                oprintf(&opasm, "%", freeConst);
+                            }
+                            else 
+                            {
+                                oprintf(&output, "    movq $", operands[2].value, ", %r", freeConst, "\n");
+                                oprintf(&opasm, "%r", freeConst);
+                            }
+                            break;
+                        }
+                        case OKind::MEMORY:
+                        {
+                            fetchMemory(&opasm, operands[2]);
+                            break;
+                        }
+                    } 
+
+                    oprintf(&output, "    idivl ", opasm, "\n");
+
+                    if (freeAx != "") freeRegister(freeAx, false);
+                    if (freeDx != "") freeRegister(freeDx, false);
+                    if (freeConst != "") freeRegister(freeConst, false);
+
+                    // Alloc register if needed 
+                    switch (operands[0].kind)
+                    {
+                        case OKind::TEMP:
+                        {
+                            std::string regSave;
+                            printRegister(&regSave, std::stoull(operands[0].value),
+                            operands[0].type.size_of, 
+                            bfromTypeKind(operands[0].type.t_kind),
+                            true);
+                            if (iv_to_reg[std::stoull(operands[0].value)] == "ax") break;
+                            
+
+                            break;
+                        }
+                    }
+                    // Move back into ax/dx
+                    break;
+                } 
             }
         }
     }
