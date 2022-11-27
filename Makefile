@@ -8,6 +8,7 @@ SRC = $(wildcard src/*.cpp) $(wildcard src/**/*.cpp) $(wildcard src/**/**/*.cpp)
 OBJ = $(SRC:.cpp=.o)
 ASM = $(SRC:.cpp=.S)
 BIN = bin
+TESTDIR = test
 
 INC_DIR_SRC = -Isrc
 INC_DIR_LIB =
@@ -17,7 +18,7 @@ RELEASEFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIB) -O3
 ASMFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIBS) -Wall
 LDFLAGS = $(LIBS) -lm -fuse-ld=mold
 
-.PHONY: all libs clean
+.PHONY: all libs clean test
 
 all: 
 	$(MAKE) -j8 bld
@@ -58,12 +59,26 @@ asm: cleanassembly $(ASM)
 	@echo ' '
 
 build: dirs link
-
+	
+testasm:
+	$(CC) -o $(TESTDIR)/test.o -c test.S 
+	clang -o $(TESTDIR)/main.o -c $(TESTDIR)/main.c 
+	$(CC) -o $(TESTDIR)/test $(TESTDIR)/main.o $(TESTDIR)/test.o 
+	./$(TESTDIR)/test
+	
 run:
 	@echo 'Running executable: '$(TARGET_EXEC)
-	./$(BIN)/$(TARGET_EXEC) Test.il;
+	./$(BIN)/$(TARGET_EXEC) Test.il test.S
 	@echo 'Finished running executable: '$(TARGET_EXEC)
 	@echo ' '
+
+test: all
+	$(CC) -std=c++2a -o $(TESTDIR)/testbuild $(TESTDIR)/testmain.cpp
+	./$(TESTDIR)/testbuild
+
+test1: 
+	$(MAKE) run
+	$(MAKE) testasm
 
 clean:
 	clear

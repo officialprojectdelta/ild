@@ -37,6 +37,7 @@ std::string gen_str(const std::string& src, size_t& pos)
     clear_whitespace(src, pos);
     size_t pos1 = pos;
     pos = src.find_first_of(" \n\r,", pos);
+    if (pos == std::string::npos) pos = src.size();
     return src.substr(pos1, pos++ - pos1);
 }
 
@@ -51,6 +52,7 @@ Type gen_type(const std::string& src, size_t& pos)
 // Generates 1 instruction
 void gen_instruct(Func* current, const std::string& src, size_t& pos)
 {
+    // std::cout << src.size() <<  ", " << pos << std::endl;
     Instruction instr;
     std::string check = gen_str(src, pos);
     if (check == "def") 

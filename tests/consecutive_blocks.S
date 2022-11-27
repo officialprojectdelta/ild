@@ -1,10 +1,13 @@
-.text
-global def i32 mainfun():
-    mov i32 %i0, i32 1
-    def i32 &a0, i32 %i0
-    mov i32 %i0, i32 2
-    def i32 &a1, i32 %i0
-    mov i32 %i0, i32 &a0
-    ret i32 %i0
-ret null
-
+.global mainfun
+mainfun:
+    pushq %rbp
+    movq %rsp, %rbp
+    movl $1, %eax
+    movl $2, %eax
+    movl -8(%rbp), %eax
+    movq %rbp, %rsp
+    popq %rbp
+    ret
+    movq %rbp, %rsp
+    popq %rbp
+    ret

@@ -11,8 +11,17 @@ std::unordered_map<size_t, std::string> iv_to_reg;
 
 std::unordered_map<Type, std::unordered_map<Type, std::string>> mov_table({
     {{TypeKind::INT, 4}, {
-        {{TypeKind::INT, 4}, "movl"}
-    }}
+        {{TypeKind::INT, 1}, "movbl"},
+        {{TypeKind::INT, 2}, "movwl"},
+        {{TypeKind::INT, 4}, "movl"},
+        {{TypeKind::INT, 8}, "mov"},
+    }},
+    {{TypeKind::INT, 8}, {
+        {{TypeKind::INT, 1}, "movsbq"},
+        {{TypeKind::INT, 2}, "movswq"},
+        {{TypeKind::INT, 4}, "movslq"},
+        {{TypeKind::INT, 8}, "movq"},
+    }},
 });
 
 std::map<std::string, bool> ireg_alloc({
@@ -132,12 +141,10 @@ void freeRegister(size_t intermediate, bool is_float)
     freeRegister(iv_to_reg[intermediate], is_float);
 }
 
-void printRegister(std::string* write, size_t intermediate, size_t size, bool is_float, bool alloc)
-{
+void printRegister(std::string* write, std::string base_reg, size_t size, bool is_float)
+{   
     oprintf(write, "%");
-    if (alloc) allocRegister(intermediate, is_float);
-    else freeRegister(intermediate, is_float);
-
+    
     if (is_float)
     {
         return;
@@ -148,56 +155,64 @@ void printRegister(std::string* write, size_t intermediate, size_t size, bool is
         {
             case 1: 
             {
-                if (iv_to_reg[intermediate][0] == 'r')
+                if (base_reg[0] == 'r')
                 {
-                    oprintf(write, iv_to_reg[intermediate], 'b');
+                    oprintf(write, base_reg, 'b');
                 }
                 else 
                 {
-                    oprintf(write, iv_to_reg[intermediate][0], 'l');
+                    oprintf(write, base_reg[0], 'l');
                 }
                 break;
             }
             case 2:
             {
-                if (iv_to_reg[intermediate][0] == 'r')
+                if (base_reg[0] == 'r')
                 {
-                    oprintf(write, iv_to_reg[intermediate], 'w');
+                    oprintf(write, base_reg, 'w');
                 }
                 else 
                 {
-                    oprintf(write, iv_to_reg[intermediate]);
+                    oprintf(write, base_reg);
                 }
                 break;
             }
             case 4: 
             {
-                if (iv_to_reg[intermediate][0] == 'r')
+                if (base_reg[0] == 'r')
                 {
-                    oprintf(write, iv_to_reg[intermediate], 'd');
+                    oprintf(write, base_reg, 'd');
                 }
                 else 
                 { 
-                    oprintf(write, 'e', iv_to_reg[intermediate]);
+                    oprintf(write, 'e', base_reg);
                 }
                 break;
             }
             case 8:
             {
-                if (iv_to_reg[intermediate][0] == 'r')
+                if (base_reg[0] == 'r')
                 {
-                    oprintf(write, iv_to_reg[intermediate]);
+                    oprintf(write, base_reg);
                 }
                 else 
                 { 
-                    oprintf(write, 'r', iv_to_reg[intermediate]);
+                    oprintf(write, 'r', base_reg);
                 }
                 break;
             }
-
-            return;
         }
     }
+}
+
+void printRegister(std::string* write, size_t intermediate, size_t size, bool is_float, bool alloc)
+{
+    if (alloc) allocRegister(intermediate, is_float);
+    else freeRegister(intermediate, is_float);
+    
+    printRegister(write, iv_to_reg[intermediate], size, is_float);
+
+    return;
 }
 
 // Prints a memory location to the output string provided
@@ -421,7 +436,7 @@ std::string codegen(Globals* src)
                     if (ireg_alloc["dx"])
                     {
                         freeDx = allocRegister(false);
-                        if (freeAx[0] == 'r') oprintf(&output, "    movq %rdx, %", freeDx, "\n");
+                        if (freeDx[0] == 'r') oprintf(&output, "    movq %rdx, %", freeDx, "\n");
                         else oprintf(&output, "    movq %rdx, %r", freeDx, "\n");
                     }
 
@@ -430,7 +445,7 @@ std::string codegen(Globals* src)
                     {
                         case OKind::TEMP: 
                         {
-                            oprintf(&output, "    movq ");
+                            oprintf(&output, "    ", mov_table[Type{TypeKind::INT, 8}][operands[1].type], " ");
                             printRegister(&output, std::stoull(operands[1].value), 
                             operands[1].type.size_of,
                             bfromTypeKind(operands[1].type.t_kind),
@@ -445,7 +460,7 @@ std::string codegen(Globals* src)
                         }
                         case OKind::MEMORY:
                         {
-                            oprintf(&output, "    movq ");
+                            oprintf(&output, "     ", mov_table[Type{TypeKind::INT, 8}][operands[1].type]);
                             fetchMemory(&output, operands[1]);
                             oprintf(&output,", %rax\n");
                             break;
@@ -491,9 +506,9 @@ std::string codegen(Globals* src)
 
                     oprintf(&output, "    idivl ", opasm, "\n");
 
-                    if (freeAx != "") freeRegister(freeAx, false);
-                    if (freeDx != "") freeRegister(freeDx, false);
-                    if (freeConst != "") freeRegister(freeConst, false);
+                    // Save this, because if ax/dx is free than we don't want output the data stored in its save location put back into it (it could be reallocated)
+                    bool freeAx_flag = ireg_alloc["ax"];
+                    bool freeDx_flag = ireg_alloc["dx"];
 
                     // Alloc register if needed 
                     switch (operands[0].kind)
@@ -506,19 +521,77 @@ std::string codegen(Globals* src)
                             bfromTypeKind(operands[0].type.t_kind),
                             true);
                             if (iv_to_reg[std::stoull(operands[0].value)] == "ax") break;
-                            
-
+                            oprintf(&output, "    movq %rax, ", regSave, "\n");
+                            break;
+                        }
+                        case OKind::MEMORY:
+                        {
+                            oprintf(&output, "    ", mov_table[operands[0].type][operands[0].type], " ");
+                            printRegister(&output, "ax", operands[0].type.size_of, false);
+                            oprintf(&output, ", ");
+                            fetchMemory(&output, operands[0]);
+                            oprintf(&output, "\n");
                             break;
                         }
                     }
+
+                    if (freeAx != "") freeRegister(freeAx, false);
+                    if (freeDx != "") freeRegister(freeDx, false);
+                    if (freeConst != "") freeRegister(freeConst, false);
+
                     // Move back into ax/dx
+
+                    if (freeAx != "" && freeAx_flag)
+                    {
+                        if (freeAx[0] == 'r') oprintf(&output, "    movq %", freeAx, ", %rax\n");
+                        else oprintf(&output, "    movq %r", freeAx, ", %rax\n");
+                    }
+                    if (freeDx != "" && freeDx_flag)
+                    {
+                        if (freeDx[0] == 'r') oprintf(&output, "    movq %", freeDx, ", %rdx\n");
+                        else oprintf(&output, "    movq %r", freeDx, ", %rdx\n");
+                    }
+
                     break;
                 } 
+                case Operator::RET:
+                {
+                    switch (operands[0].kind)
+                    {
+                        case OKind::TEMP:
+                        {
+                            if (iv_to_reg[std::stoull(operands[0].value)] == "ax") break;
+
+                            oprintf(&output, "    movq ");
+                            printRegister(&output, std::stoull(operands[0].value), 
+                            operands[0].type.size_of, 
+                            bfromTypeKind(operands[0].type.t_kind), 
+                            false);
+
+                            oprintf(&output, ", %rax\n");
+                            break;
+                        }
+                        case OKind::CONST:
+                        {
+                            oprintf(&output, "    ", mov_table[Type{TypeKind::INT, 8}][operands[0].type], " $", operands[0].value, ", %rax\n");
+                            break;
+                        }
+                        case OKind::MEMORY:
+                        {
+                            oprintf(&output, "    ", mov_table[Type{TypeKind::INT, 8}][operands[0].type], " ");
+                            fetchMemory(&output, operands[0]);
+                            oprintf(&output, ", %rax\n");
+                            break;
+                        }
+                    }
+
+                    cgfEpilogue();
+                    oprintf(&output, "    ret\n");
+                    break;
+                }
             }
         }
     }
 
-    std::cout << output << std::endl;
-
-    return std::string();
+    return output;
 }
