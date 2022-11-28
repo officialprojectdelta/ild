@@ -19,6 +19,7 @@ std::unordered_map<std::string, std::pair<size_t /* Oprand count, so the generat
     {"div", {3, Operator::DIV}},
     {"def", {2, Operator::DEF}},
     {"ret", {1, Operator::RET}},
+    {"jmp", {1, Operator::JMP}},
 });
 
 // Go through string that could start with whitespace and make sure it doesn't
@@ -52,7 +53,6 @@ Type gen_type(const std::string& src, size_t& pos)
 // Generates 1 instruction
 void gen_instruct(Func* current, const std::string& src, size_t& pos)
 {
-    std::cout << src.size() <<  ", " << pos << std::endl;
     Instruction instr;
     std::string check = gen_str(src, pos);
     if (check == "def") 
@@ -139,11 +139,90 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
             }
         }
     }
-    else 
+    else if (check.back() == ':') 
     {
-        if (check.last != ':') throw compiler_error("Invalid operator %s", check.c_str());
         instr.op = Operator::LABLEDEF;
-    }   
+        instr.opval = check;
+    }
+    else if (check[0] == 'j') 
+    {
+        instr.op = Operator::JMPC;
+        instr.opval = check;
+
+        for (size_t i = 0; i < 3; i++)
+        {
+            size_t pos1 = pos;
+            Type type = gen_type(src, pos); 
+            // Gen all subnodes
+            if (type.t_kind == TypeKind::NULLTP)
+            {
+                // Must be lable
+                pos = pos1;
+                instr.operands[i].kind = OKind::LABLE;
+                instr.operands[i].value = gen_str(src, pos);
+            }
+            else
+            {
+                // Add type and check next for the value
+                instr.operands[i].type = type;
+                std::string check = gen_str(src, pos);
+
+                // Temporary 
+                if (check[0] == '%')
+                {
+                    instr.operands[i].kind = OKind::TEMP;
+                    check.erase(0, 2);
+                    instr.operands[i].value = check;
+                }
+                else if (check[0] == '&')
+                {
+                    instr.operands[i].kind = OKind::MEMORY;
+                    check.erase(0, 1);
+                    instr.operands[i].value = check;
+                }
+                else // Must be number
+                {
+                    instr.operands[i].kind = OKind::CONST;
+                    instr.operands[i].value = check;
+                }
+            }
+        }
+    }
+    else if (check.substr(0, 3) == "set")
+    {
+        instr.op = Operator::SET;
+        instr.opval = check;
+
+        for (size_t i = 0; i < 3; i++)
+        {
+            size_t pos1 = pos;
+            Type type = gen_type(src, pos); 
+
+            // Add type and check next for the value
+            instr.operands[i].type = type;
+            std::string check = gen_str(src, pos);
+
+            // Temporary 
+            if (check[0] == '%')
+            {
+                instr.operands[i].kind = OKind::TEMP;
+                check.erase(0, 2);
+                instr.operands[i].value = check;
+            }
+            else if (check[0] == '&')
+            {
+                instr.operands[i].kind = OKind::MEMORY;
+                check.erase(0, 1);
+                instr.operands[i].value = check;
+            }
+            else // Must be number
+            {
+                instr.operands[i].kind = OKind::CONST;
+                instr.operands[i].value = check;
+            }
+        }
+    }
+    else throw compiler_error("Invalid operator %s", check.c_str());
 
     current->instruct_list.emplace_back(instr);
 

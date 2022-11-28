@@ -12,6 +12,9 @@ enum class Operator
     SUB,
     MUL,
     DIV,
+    SET,
+    JMP,
+    JMPC, 
     DEF,
     LABLEDEF, 
     RET
@@ -76,6 +79,7 @@ struct Operand
 struct Instruction
 {
     Operator op; // The operator, such as mov, add, cmp, or jmp
+    std::string opval; // Used for setl and other instructions
     std::array<Operand, 3> operands; // So it can be indexed, holds 3 operands
 };
 

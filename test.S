@@ -2,12 +2,21 @@
 mainfun:
     pushq %rbp
     movq %rsp, %rbp
-    movl $4, %eax
+    movl $0, %eax
+    movl %eax, -8(%rbp)
+    movl $0, %eax
+    movl %eax, -8(%rbp)
+    movl -8(%rbp), %eax
     movl $3, %ebx
-    movq %rax, %rcx
-    movslq %eax, %rax
-    cqo
-    idivl %ebx
+    movl -8(%rbp), %eax
+    movl $2, %ebx
+    imul %ebx, %eax
+    movl %eax, -8(%rbp)
+    movl -8(%rbp), %eax
+    movl $1, %ebx
+    addl %ebx, %eax
+    movl %eax, -8(%rbp)
+    movl -8(%rbp), %eax
     movq %rbp, %rsp
     popq %rbp
     ret
