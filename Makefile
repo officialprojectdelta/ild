@@ -16,7 +16,7 @@ INC_DIR_LIB =
 DEBUGFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIB) -Wall -g
 RELEASEFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIB) -O3
 ASMFLAGS = $(INC_DIR_SRC) $(INC_DIR_LIBS) -Wall
-LDFLAGS = $(LIBS) -lm -fuse-ld=mold
+LDFLAGS = $(LIBS) -lm 
 
 .PHONY: all libs clean test
 

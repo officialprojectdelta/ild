@@ -52,7 +52,7 @@ Type gen_type(const std::string& src, size_t& pos)
 // Generates 1 instruction
 void gen_instruct(Func* current, const std::string& src, size_t& pos)
 {
-    // std::cout << src.size() <<  ", " << pos << std::endl;
+    std::cout << src.size() <<  ", " << pos << std::endl;
     Instruction instr;
     std::string check = gen_str(src, pos);
     if (check == "def") 
@@ -70,6 +70,7 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
         if (type.t_kind == TypeKind::NULLTP) 
         {
             pos = pos1;
+            instr.operands[1].type = {TypeKind::NULLTP, 0};
         }
         else
         {
@@ -140,7 +141,8 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
     }
     else 
     {
-        throw compiler_error("Invalid operator", check.c_str());
+        if (check.last != ':') throw compiler_error("Invalid operator %s", check.c_str());
+        instr.op = Operator::LABLEDEF;
     }   
 
     current->instruct_list.emplace_back(instr);

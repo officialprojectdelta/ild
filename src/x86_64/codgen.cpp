@@ -235,9 +235,9 @@ void cgfEpilogue()
 }
 
 // Emits a move instruction moving the second operand to the first operand
-void doMove(Operand dst, Operand src)
+void doMove(std::string* write, Operand dst, Operand src)
 {
-    oprintf(&output, "    ", mov_table[dst.type/* DST */][src.type /* SRC */]);
+    oprintf(write, "    ", mov_table[dst.type/* DST */][src.type /* SRC */]);
                     
     std::array<std::string, 2> strs;
     for (char k = 1; k >= 0; k--) 
@@ -266,7 +266,7 @@ void doMove(Operand dst, Operand src)
         }
     }
     
-    oprintf(&output, " ", strs[1], ", ", strs[0], "\n");
+    oprintf(write, " ", strs[1], ", ", strs[0], "\n");
 }
 
 std::string codegen(Globals* src)
@@ -288,11 +288,17 @@ std::string codegen(Globals* src)
                 {
                     var_map.insert({operands[0].value, stackLoc});
                     stackLoc+=operands[0].type.size_of;
+
+                    if (operands[1].type.t_kind != TypeKind::NULLTP) 
+                    {
+                        doMove(&output, operands[0], operands[1]);
+                    }
+                    std::cout << output << std::endl;
                     break;
                 }
                 case Operator::MOV:
                 {
-                    doMove(operands[0], operands[1]);
+                    doMove(&output, operands[0], operands[1]);
                     break;
                 }
                 case Operator::ADD:
@@ -301,7 +307,7 @@ std::string codegen(Globals* src)
                     // Make sure that they are
                     // Do add instruction
                     if (operands[0].kind == OKind::TEMP && operands[1].kind == OKind::TEMP && operands[0].value == operands[1].value) {}
-                    else doMove(operands[0], operands[1]);
+                    else doMove(&output, operands[0], operands[1]);
 
                     oprintf(&output, "    addl");
 
@@ -336,7 +342,7 @@ std::string codegen(Globals* src)
                 case Operator::SUB:
                 {
                     if (operands[0].kind == OKind::TEMP && operands[1].kind == OKind::TEMP && operands[0].value == operands[1].value) {}
-                    else doMove(operands[0], operands[1]);
+                    else doMove(&output, operands[0], operands[1]);
 
                     oprintf(&output, "    subl");
 
@@ -371,7 +377,7 @@ std::string codegen(Globals* src)
                 case Operator::MUL:
                 {
                     if (operands[0].kind == OKind::TEMP && operands[1].kind == OKind::TEMP && operands[0].value == operands[1].value) {}
-                    else doMove(operands[0], operands[1]);
+                    else doMove(&output, operands[0], operands[1]);
 
                     oprintf(&output, "    imul");
 

@@ -13,6 +13,7 @@ enum class Operator
     MUL,
     DIV,
     DEF,
+    LABLEDEF, 
     RET
 };
 
