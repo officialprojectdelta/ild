@@ -60,6 +60,14 @@ std::map<std::string, bool> freg_alloc({
     {"xmm15", false}
 });
 
+// Gets the AT&T prefix of a size
+std::unordered_map<size_t, char> size_toc({
+    {1, 'b'},
+    {2, 'w'},
+    {4, 'l'},
+    {8, 'q'},
+});
+
 size_t stackLoc = 8;
 std::string output; 
 
@@ -293,7 +301,6 @@ std::string codegen(Globals* src)
                     {
                         doMove(&output, operands[0], operands[1]);
                     }
-                    std::cout << output << std::endl;
                     break;
                 }
                 case Operator::MOV:
@@ -594,6 +601,20 @@ std::string codegen(Globals* src)
                     cgfEpilogue();
                     oprintf(&output, "    ret\n");
                     break;
+                }
+                case Operator::LABLEDEF:
+                {
+                    oprintf(&output, src->fun_list[i].instruct_list[j].opval, "\n");
+                    break;
+                }
+                case Operator::JMP:
+                {
+                    oprintf(&output, "    jmp ", operands[0].value, "\n");
+                    break;
+                }
+                case Operator::JMPC:
+                {
+                    oprintf()
                 }
             }
         }
