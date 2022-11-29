@@ -7,8 +7,14 @@
 #include "error.h" // A nice exception class with printf formatting
 
 std::unordered_map<std::string, Type> str_type({
+    {"i8", {TypeKind::INT, 1}},
+    {"f8", {TypeKind::FLOAT, 1}},
+    {"i16", {TypeKind::INT, 2}},
+    {"f16", {TypeKind::FLOAT, 2}},
     {"i32", {TypeKind::INT, 4}},
     {"f32", {TypeKind::FLOAT, 4}},
+    {"i64", {TypeKind::INT, 8}},
+    {"f64", {TypeKind::FLOAT, 8}},
 });
 
 std::unordered_map<std::string, std::pair<size_t /* Oprand count, so the generator knows how many oprands */, Operator /* Actual enum value */>> operator_map({

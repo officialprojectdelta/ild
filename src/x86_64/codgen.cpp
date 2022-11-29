@@ -12,8 +12,8 @@ std::unordered_map<size_t, std::string> iv_to_reg;
 
 std::unordered_map<Type, std::unordered_map<Type, std::string>> mov_table({
     {{TypeKind::INT, 4}, {
-        {{TypeKind::INT, 1}, "movbl"},
-        {{TypeKind::INT, 2}, "movwl"},
+        {{TypeKind::INT, 1}, "movsbl"},
+        {{TypeKind::INT, 2}, "movswl"},
         {{TypeKind::INT, 4}, "movl"},
         {{TypeKind::INT, 8}, "mov"},
     }},
@@ -289,6 +289,83 @@ bool doCmp(Operand dst, Operand src)
         // If they are different, allocate a register and move the smaller one to the size of the bigger one
         // Compare the two operands
         // For non registers, the order of operands may have to be fliped, returning true on the bool
+        // WHEN THERE ARE CONSTANTS THAT ARNT 32 BIT, THEY NEVER NEED TO BE UPSCALED, ONLY OTHER THINGS UPSCALED TO THEM
+
+        if (dst.type.size_of == src.type.size_of)
+        {
+            if (dst.kind == CONST)
+            {
+
+            }
+            else 
+            {
+                oprintf(&output, "    cmp", size_toc[dst.type.size_of], " ");
+                
+                std::array<std::string, 2> strs;
+                for (char k = 1; k >= 0; k--) 
+                {
+                    Operand cur = k ? src : dst;
+                    switch (cur.kind)
+                    {
+                        case OKind::TEMP:
+                        {
+                            printRegister(&strs[k], std::stoull(cur.value), 
+                            cur.type.size_of, 
+                            bfromTypeKind(cur.type.t_kind), 
+                            !k);
+                            break;
+                        }
+                        case OKind::CONST:
+                        {
+                            oprintf(&strs[k], "$", cur.value);
+                            break;
+                        }
+                        case OKind::MEMORY:
+                        {
+                            fetchMemory(&strs[k], cur);
+                            break;
+                        }
+                    }
+                }
+                
+                oprintf(write, " ", strs[1], ", ", strs[0], "\n");
+            }
+        }
+        else 
+        {
+            Operand smaller = dst.type.size_of < src.type.size_of ? dst : src;
+            Operand bigger = dst.type.size_of < src.type.size_of ? src : dst;
+
+            std::string regSave = allocRegister(false);
+            oprintf(&output, "    ", mov_table[bigger.type][smaller.type], " ");
+            switch (smaller.kind)
+            {
+                case OKind::TEMP:
+                {
+                    printRegister(&output, std::stoull(smaller.value),
+                    smaller.type.size_of, 
+                    bfromTypeKind(smaller.type.t_kind),
+                    false);
+                    break;
+                }
+                case OKind::CONST:
+                {
+                    oprintf(&output, "$", smaller.value);
+                    break;
+                }
+                case OKind::MEMORY:
+                {
+                    fetchMemory(&output, smaller);
+                    break;
+                }
+            }
+
+            oprintf(&output, ", ");
+            printRegister(&output, regSave, bigger.type.size_of, false);
+            oprintf(&output, "\n");
+
+            freeRegister(regSave, false);
+        }
 
         return true;
     };
@@ -663,7 +740,8 @@ std::string codegen(Globals* src)
                 }
                 case Operator::JMPC:
                 {
-                    
+                    doCmp(operands[1], operands[2]);
+                    break;
                 }
             }
         }

@@ -9,6 +9,7 @@ mainfun:
 .LC0:
     movl -8(%rbp), %eax
     movl $3, %ebx
+    movsbl $0, %ecx
     movl -8(%rbp), %eax
     movl $2, %ebx
     imul %ebx, %eax
