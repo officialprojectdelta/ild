@@ -291,45 +291,46 @@ bool doCmp(Operand dst, Operand src)
         // For non registers, the order of operands may have to be fliped, returning true on the bool
         // WHEN THERE ARE CONSTANTS THAT ARNT 32 BIT, THEY NEVER NEED TO BE UPSCALED, ONLY OTHER THINGS UPSCALED TO THEM
 
+        bool rval = false;
+
         if (dst.type.size_of == src.type.size_of)
         {
-            if (dst.kind == CONST)
+            oprintf(&output, "    cmp", size_toc[dst.type.size_of], " ");
+            
+            std::array<std::string, 2> strs;
+            for (char k = 1; k >= 0; k--) 
             {
-
-            }
-            else 
-            {
-                oprintf(&output, "    cmp", size_toc[dst.type.size_of], " ");
-                
-                std::array<std::string, 2> strs;
-                for (char k = 1; k >= 0; k--) 
+                Operand cur;
+                if (dst.kind == OKind::CONST) 
                 {
-                    Operand cur = k ? src : dst;
-                    switch (cur.kind)
+                    cur = k ? dst : src;
+                    rval = true;
+                }
+                else cur = k ? src : dst;
+                switch (cur.kind)
+                {
+                    case OKind::TEMP:
                     {
-                        case OKind::TEMP:
-                        {
-                            printRegister(&strs[k], std::stoull(cur.value), 
-                            cur.type.size_of, 
-                            bfromTypeKind(cur.type.t_kind), 
-                            !k);
-                            break;
-                        }
-                        case OKind::CONST:
-                        {
-                            oprintf(&strs[k], "$", cur.value);
-                            break;
-                        }
-                        case OKind::MEMORY:
-                        {
-                            fetchMemory(&strs[k], cur);
-                            break;
-                        }
+                        printRegister(&strs[k], std::stoull(cur.value), 
+                        cur.type.size_of, 
+                        bfromTypeKind(cur.type.t_kind), 
+                        !k);
+                        break;
+                    }
+                    case OKind::CONST:
+                    {
+                        oprintf(&strs[k], "$", cur.value);
+                        break;
+                    }
+                    case OKind::MEMORY:
+                    {
+                        fetchMemory(&strs[k], cur);
+                        break;
                     }
                 }
-                
-                oprintf(write, " ", strs[1], ", ", strs[0], "\n");
             }
+            
+            oprintf(&output, strs[1], ", ", strs[0], "\n");
         }
         else 
         {
@@ -365,21 +366,143 @@ bool doCmp(Operand dst, Operand src)
             oprintf(&output, "\n");
 
             freeRegister(regSave, false);
+
+            std::string biggerStr; // The output for the bigger string
+            switch (bigger.kind)
+            {
+                case OKind::TEMP:
+                {
+                    printRegister(&biggerStr, std::stoull(bigger.value),
+                    bigger.type.size_of, 
+                    bfromTypeKind(bigger.type.t_kind), 
+                    false);
+                    break;
+                }
+                case OKind::CONST:
+                {
+                    oprintf(&biggerStr, "$", bigger.value);
+                    break;
+                }
+                case OKind::MEMORY:
+                {
+                    fetchMemory(&biggerStr, bigger);
+                    break;
+                }
+            }
+
+            if (dst.type.size_of < src.type.size_of)
+            {
+                // Bigger than smaller
+                oprintf(&output, "    cmp", size_toc[bigger.type.size_of], " ", biggerStr, ", ");
+                printRegister(&output, regSave, bigger.type.size_of, false);
+                oprintf(&output, "\n");
+            }
+            else 
+            {
+                // Smaller than bigger
+                if (dst.kind == OKind::CONST)
+                {
+                    oprintf(&output, "    cmp", size_toc[bigger.type.size_of], " ", biggerStr, ", ");
+                    printRegister(&output, regSave, bigger.type.size_of, false);
+                    oprintf(&output, "\n");
+                    rval = true;
+                }
+                oprintf(&output, "    cmp", size_toc[bigger.type.size_of], " ");
+                printRegister(&output, regSave, bigger.type.size_of, false);
+                oprintf(&output, ", ", biggerStr, "\n");
+            }
         }
 
-        return true;
+        return rval;
     };
 
     // Lambda for the const const case
     auto const2 = [dst, src]() -> bool
     {
-        return true;
+        bool rval = false;
+
+        if (dst.type.size_of == src.type.size_of)
+        {
+            std::string regSave = allocRegister(false);
+            oprintf(&output, "    ", mov_table[dst.type][dst.type], " $", dst.value, ", ");
+            printRegister(&output, regSave, dst.type.size_of, false);
+            oprintf(&output, "\n");
+            freeRegister(regSave, false);
+
+            oprintf(&output, "    cmp", size_toc[dst.type.size_of], " $", src.value, ", ");
+            printRegister(&output, regSave, dst.type.size_of, false);
+            oprintf(&output, "\n");
+        }
+        else 
+        {
+            Operand smaller = dst.type.size_of < src.type.size_of ? dst : src;
+            Operand bigger = dst.type.size_of < src.type.size_of ? src : dst;
+
+            std::string regSave = allocRegister(false);
+            oprintf(&output, "    ", mov_table[bigger.type][smaller.type], " $", smaller.value, ", ");
+            printRegister(&output, regSave, bigger.type.size_of, false);
+            oprintf(&output, "\n");
+            freeRegister(regSave, false);
+
+            oprintf(&output, "    cmp", size_toc[bigger.type.size_of], " $", bigger.value, ", ");
+            printRegister(&output, regSave, bigger.type.size_of, false);
+            oprintf(&output, "\n");
+
+            if (dst.type.size_of < src.type.size_of) rval = true;
+        }
+
+        return rval;
     };
 
     // Lambda for the mem mem case
     auto mem2 = [dst, src]() -> bool
     {
-        return true;
+        bool rval = false;
+        if (dst.type.size_of == src.type.size_of)
+        {
+            std::string regSave = allocRegister(false);
+            oprintf(&output, "    ", mov_table[dst.type][dst.type], " ");
+            fetchMemory(&output, dst);
+            oprintf(&output, ", ");
+            printRegister(&output, regSave, dst.type.size_of, false);
+            oprintf(&output, "\n");
+            freeRegister(regSave, false);
+
+            oprintf(&output, "    cmp", size_toc[dst.type.size_of], " ");
+            fetchMemory(&output, src);
+            oprintf(&output, ", ");
+            printRegister(&output, regSave, dst.type.size_of, false);
+            oprintf(&output, "\n");
+        }
+        else 
+        {
+            Operand smaller = dst.type.size_of < src.type.size_of ? dst : src;
+            Operand bigger = dst.type.size_of < src.type.size_of ? src : dst;
+
+            std::string regSave = allocRegister(false);
+            oprintf(&output, "    ", mov_table[bigger.type][smaller.type], " ");
+            fetchMemory(&output, smaller);
+            oprintf(&output, ", ");
+            printRegister(&output, regSave, bigger.type.size_of, false);
+            oprintf(&output, "\n");
+            freeRegister(regSave, false);
+
+            std::string dstStr, srcStr;
+            if (dst.type.size_of < src.type.size_of)
+            {
+                printRegister(&dstStr, regSave, bigger.type.size_of, false);
+                fetchMemory(&srcStr, bigger);
+            }
+            else 
+            {
+                printRegister(&srcStr, regSave, bigger.type.size_of, false);
+                fetchMemory(&dstStr, bigger);
+            }
+
+            oprintf(&output, "    cmp", size_toc[bigger.type.size_of], " ", srcStr, ", ", dstStr, "\n");
+        }
+
+        return false;
     };
     
     std::unordered_map<OKind, std::unordered_map<OKind, std::function<bool()>>> ops_tolambda({
@@ -740,7 +863,7 @@ std::string codegen(Globals* src)
                 }
                 case Operator::JMPC:
                 {
-                    doCmp(operands[1], operands[2]);
+                    std::cout << doCmp(operands[1], operands[2]) << std::endl;
                     break;
                 }
             }

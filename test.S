@@ -5,11 +5,12 @@ mainfun:
     movl $0, %eax
     movl %eax, -8(%rbp)
     movl $0, %eax
-    movl %eax, -8(%rbp)
+    movl %eax, -12(%rbp)
 .LC0:
     movl -8(%rbp), %eax
     movl $3, %ebx
-    movsbl $0, %ecx
+    movl -12(%rbp), %ecx
+    cmpl -8(%rbp), %ecx
     movl -8(%rbp), %eax
     movl $2, %ebx
     imul %ebx, %eax

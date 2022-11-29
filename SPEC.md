@@ -98,4 +98,5 @@ test:
   ret
 ```
   
-
+conditional jumps
+jxx lable, dst, src
