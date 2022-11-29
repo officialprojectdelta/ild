@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <map>
 #include <sstream>
+#include <functional>
 
 #include "error.h"
 
@@ -275,6 +276,54 @@ void doMove(std::string* write, Operand dst, Operand src)
     }
     
     oprintf(write, " ", strs[1], ", ", strs[0], "\n");
+}
+
+// Emits a comparison operation for 2 operands
+bool doCmp(Operand dst, Operand src)
+{
+    // A lambda for almost every case (except for 2 memory and 2 const)
+    auto up1_highest = [dst, src]() -> bool
+    {
+        // Check size of operands 
+        // If they are the same do the cmp
+        // If they are different, allocate a register and move the smaller one to the size of the bigger one
+        // Compare the two operands
+        // For non registers, the order of operands may have to be fliped, returning true on the bool
+
+        return true;
+    };
+
+    // Lambda for the const const case
+    auto const2 = [dst, src]() -> bool
+    {
+        return true;
+    };
+
+    // Lambda for the mem mem case
+    auto mem2 = [dst, src]() -> bool
+    {
+        return true;
+    };
+    
+    std::unordered_map<OKind, std::unordered_map<OKind, std::function<bool()>>> ops_tolambda({
+        {OKind::TEMP, {
+            {OKind::TEMP, up1_highest},
+            {OKind::CONST, up1_highest},
+            {OKind::MEMORY, up1_highest},
+        }},
+        {OKind::MEMORY, {
+            {OKind::TEMP, up1_highest},
+            {OKind::CONST, up1_highest},
+            {OKind::MEMORY, mem2},
+        }},
+        {OKind::CONST, {
+            {OKind::TEMP, up1_highest},
+            {OKind::CONST, const2},
+            {OKind::MEMORY, up1_highest},
+        }},
+    });
+
+    return ops_tolambda[dst.kind][src.kind]();
 }
 
 std::string codegen(Globals* src)
@@ -614,7 +663,7 @@ std::string codegen(Globals* src)
                 }
                 case Operator::JMPC:
                 {
-                    oprintf()
+                    
                 }
             }
         }
