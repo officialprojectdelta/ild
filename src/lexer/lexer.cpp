@@ -197,7 +197,7 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
     else if (check.substr(0, 3) == "set")
     {
         instr.op = Operator::SET;
-        instr.opval = check;
+        instr.opval = check.substr(3);
 
         for (size_t i = 0; i < 3; i++)
         {
