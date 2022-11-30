@@ -11,6 +11,7 @@ mainfun:
     movl $3, %ebx
     movl -12(%rbp), %ecx
     cmpl -8(%rbp), %ecx
+    je .LC1
     movl -8(%rbp), %eax
     movl $2, %ebx
     imul %ebx, %eax

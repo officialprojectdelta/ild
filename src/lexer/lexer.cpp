@@ -153,7 +153,7 @@ void gen_instruct(Func* current, const std::string& src, size_t& pos)
     else if (check[0] == 'j') 
     {
         instr.op = Operator::JMPC;
-        instr.opval = check;
+        instr.opval = check.substr(1);
 
         for (size_t i = 0; i < 3; i++)
         {

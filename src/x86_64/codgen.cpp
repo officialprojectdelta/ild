@@ -69,6 +69,16 @@ std::unordered_map<size_t, char> size_toc({
     {8, 'q'},
 });
 
+// CMP inverse map
+std::unordered_map<std::string, std::string> cmp_invrs({
+    {"e", "e"},
+    {"ne", "ne"},
+    {"l", "ge"},
+    {"le", "g"},
+    {"g", "le"},
+    {"ge", "l"},
+});
+
 size_t stackLoc = 8;
 std::string output; 
 
@@ -863,7 +873,15 @@ std::string codegen(Globals* src)
                 }
                 case Operator::JMPC:
                 {
-                    std::cout << doCmp(operands[1], operands[2]) << std::endl;
+                    if (doCmp(operands[1], operands[2])) oprintf(&output, "j", cmp_invrs[src->fun_list[i].instruct_list[j].opval], " ", operands[0].value, "\n");
+                    else oprintf(&output, "    j", src->fun_list[i].instruct_list[j].opval, " ", operands[0].value, "\n");
+                    break;
+                }
+                case Operator::SET:
+                {
+                    if (doCmp(operands[1], operands[2])) oprintf(&output, "set", cmp_invrs[src->fun_list[i].instruct_list[j].opval], " ");
+                    else oprintf(&output, "set", src->fun_list[i].instruct_list[j].opval, " ");
+                    
                     break;
                 }
             }
