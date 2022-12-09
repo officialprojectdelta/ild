@@ -25,6 +25,13 @@ std::unordered_map<Type, std::unordered_map<Type, std::string>> mov_table({
     }},
 });
 
+std::string get_movop(Type dst, Type src, bool src_isconst)
+{
+    // HACK 
+    if (src_isconst) return mov_table[dst][dst];
+    return mov_table[dst][src];
+}
+
 std::map<std::string, bool> ireg_alloc({
     {"ax", false},
     {"bx", false},
@@ -256,7 +263,7 @@ void cgfEpilogue()
 // Emits a move instruction moving the second operand to the first operand
 void doMove(std::string* write, Operand dst, Operand src)
 {
-    oprintf(write, "    ", mov_table[dst.type/* DST */][src.type /* SRC */]);
+    oprintf(write, "    ", get_movop(dst.type/* DST */, src.type /* SRC */, src.kind == OKind::CONST ? 1 : 0));
                     
     std::array<std::string, 2> strs;
     for (char k = 1; k >= 0; k--) 
@@ -348,7 +355,7 @@ bool doCmp(Operand dst, Operand src)
             Operand bigger = dst.type.size_of < src.type.size_of ? src : dst;
 
             std::string regSave = allocRegister(false);
-            oprintf(&output, "    ", mov_table[bigger.type][smaller.type], " ");
+            oprintf(&output, "    ", get_movop(bigger.type/* DST */, smaller.type /* SRC */, smaller.kind == OKind::CONST ? 1 : 0));
             switch (smaller.kind)
             {
                 case OKind::TEMP:
@@ -434,7 +441,7 @@ bool doCmp(Operand dst, Operand src)
         if (dst.type.size_of == src.type.size_of)
         {
             std::string regSave = allocRegister(false);
-            oprintf(&output, "    ", mov_table[dst.type][dst.type], " $", dst.value, ", ");
+            oprintf(&output, "    ", get_movop(dst.type/* DST */, dst.type /* SRC */, src.kind == OKind::CONST ? 1 : 0));
             printRegister(&output, regSave, dst.type.size_of, false);
             oprintf(&output, "\n");
             freeRegister(regSave, false);
@@ -449,7 +456,7 @@ bool doCmp(Operand dst, Operand src)
             Operand bigger = dst.type.size_of < src.type.size_of ? src : dst;
 
             std::string regSave = allocRegister(false);
-            oprintf(&output, "    ", mov_table[bigger.type][smaller.type], " $", smaller.value, ", ");
+            oprintf(&output, "    ", get_movop(bigger.type/* DST */, smaller.type /* SRC */, smaller.kind == OKind::CONST ? 1 : 0));
             printRegister(&output, regSave, bigger.type.size_of, false);
             oprintf(&output, "\n");
             freeRegister(regSave, false);
@@ -717,7 +724,7 @@ std::string codegen(Globals* src)
                     {
                         case OKind::TEMP: 
                         {
-                            oprintf(&output, "    ", mov_table[Type{TypeKind::INT, 8}][operands[1].type], " ");
+                            oprintf(&output, "    ", get_movop(Type{TypeKind::INT, 8}, operands[1].type, operands[1].kind == OKind::CONST ? 1 : 0));
                             printRegister(&output, std::stoull(operands[1].value), 
                             operands[1].type.size_of,
                             bfromTypeKind(operands[1].type.t_kind),
@@ -845,7 +852,7 @@ std::string codegen(Globals* src)
                         }
                         case OKind::CONST:
                         {
-                            oprintf(&output, "    ", mov_table[Type{TypeKind::INT, 8}][operands[0].type], " $", operands[0].value, ", %rax\n");
+                            oprintf(&output, "    ", get_movop(Type{TypeKind::INT, 8}, operands[0].type, 1), " $", operands[0].value, ", %rax\n");
                             break;
                         }
                         case OKind::MEMORY:
@@ -880,8 +887,11 @@ std::string codegen(Globals* src)
                 case Operator::SET:
                 {
                     if (doCmp(operands[1], operands[2])) oprintf(&output, "set", cmp_invrs[src->fun_list[i].instruct_list[j].opval], " ");
-                    else oprintf(&output, "set", src->fun_list[i].instruct_list[j].opval, " ");
-                    
+                    else oprintf(&output, "    set", src->fun_list[i].instruct_list[j].opval, " ");
+
+                    printRegister(&output, std::stoull(operands[0].value), 
+                    1, false, true);
+                    output.push_back('\n');
                     break;
                 }
             }
